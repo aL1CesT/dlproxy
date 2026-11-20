@@ -1,0 +1,378 @@
+/* dlproxy UI — additive styling on top of Pico.
+   Nothing here restyles Pico's components; it only adds the handful of things
+   this app needs: human-readable byte counters, a scrollable history table, and
+   tag chips for account state. */
+
+:root {
+  --dl-radius: 6px;
+  --dl-ok: #1a7f37;
+  --dl-bad: #b42318;
+  --dl-warn: #9a6700;
+
+  /* Pico scales the root font with the viewport: 100% at 360 px, but 112.5%
+     from 768 px, 118.75% from 1024 px and 125% from 1280 px. Every rem in this
+     file is relative to that, so a data table that reads fine on a phone grew
+     to 17.6 px on a desktop and the stat counters to 32 px. Pin the root size;
+     the layout below is then the same everywhere and the type scale is ours to
+     choose. Declared after pico.min.css, so this wins without !important. */
+  --pico-font-size: 100%;
+}
+
+.site-header nav {
+  border-bottom: 1px solid var(--pico-muted-border-color);
+  padding-block: 0.35rem;
+}
+
+/* Pico pulls the last nav list out by one spacing unit so that a borderless
+   link's padding lines up with the container edge. Our controls carry their own
+   border and padding, so that trick pushes the last <li> 8 px past the nav box
+   at every width. Cancel it; the controls below are the ones that define the
+   right edge now. */
+.site-header nav ul:last-of-type { margin-right: 0; }
+
+/* Nav controls: an <a role="button"> and a real <button> are shaped by
+   different Pico rules. The link also picks up an extra negative margin from
+   `nav li :where(a,[role=link])`, so the row rendered 41.6 px next to 38.6 px —
+   a 3 px step that reads as "these buttons are different heights". Give both
+   the same box explicitly instead of cancelling Pico rule by rule. */
+.site-header nav li > a[role="button"],
+.site-header nav li form.inline > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  height: 2rem;
+  margin: 0;
+  padding: 0 0.7rem;
+  font-size: 0.82rem;
+  line-height: 1;
+  vertical-align: middle;
+}
+
+.site-header nav li > small { font-size: 0.82rem; }
+
+.site-footer {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--pico-muted-border-color);
+  color: var(--pico-muted-color);
+  text-align: center;
+}
+
+.narrow { max-width: 26rem; margin-inline: auto; }
+
+.big {
+  font-size: 1.35rem;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 0.3rem;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+.big small { font-size: 0.8rem; color: var(--pico-muted-color); }
+
+/* Status banners, deliberately not Pico alerts so they stack tightly. */
+.banner {
+  padding: 0.65rem 0.9rem;
+  border-radius: var(--dl-radius);
+  border-left: 4px solid;
+  margin-bottom: 1rem;
+  font-size: 0.92rem;
+}
+.banner.ok   { background: #eaf6ec; border-color: var(--dl-ok); }
+.banner.warn { background: #fdf5e2; border-color: var(--dl-warn); }
+.banner.bad  { background: #fdeceb; border-color: var(--dl-bad); }
+
+/* History table: URLs are long and must not blow up the layout. */
+.table-wrap { overflow-x: auto; }
+.table-wrap table { font-size: 0.82rem; margin-bottom: 0; }
+.table-wrap th, .table-wrap td { white-space: nowrap; padding: 0.42rem 0.55rem; }
+.table-wrap thead th {
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--pico-muted-color);
+}
+/* History URLs are the one thing a user comes to this table for, and they
+   truncated: `text-overflow: ellipsis` + `nowrap` cut every GitHub release link
+   long before its filename. Break instead of clipping — `anywhere` lets a
+   percent-encoded query wrap, and `max-width` keeps one row from claiming the
+   whole table. */
+td.url {
+  max-width: 34rem;
+  min-width: 14rem;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  font-family: var(--pico-font-family-monospace, monospace);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+/* The token is 32 characters and unbreakable. Left to itself it claims ~370 px
+   of the users table, which pushed the action buttons past the right edge of a
+   wide desktop viewport — the "删除" button was cut in half at 1440 px. Let it
+   break and cap its width; the whole value stays selectable and the copy
+   button works regardless. */
+.table-wrap td.token-cell {
+  white-space: normal;
+  max-width: 15rem;
+}
+
+.token {
+  word-break: break-all;
+  font-size: 0.82rem;
+  background: var(--pico-code-background-color);
+  padding: 0.15rem 0.35rem;
+  border-radius: 4px;
+}
+
+.tag {
+  display: inline-block;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+.tag.ok  { background: #eaf6ec; color: var(--dl-ok); }
+.tag.bad { background: #fdeceb; color: var(--dl-bad); }
+
+/* ------------------------------------------------------------------
+   Typography and form layout
+   Pico's defaults are tuned for prose; a form-and-table app reads better with
+   tighter headings, a smaller table body and explicit field spacing.
+   ------------------------------------------------------------------ */
+
+body { font-size: 15px; line-height: 1.65; }
+
+article { margin-bottom: 1.1rem; }
+article > header { margin-bottom: 0.85rem; }
+article > header strong { font-size: 1rem; letter-spacing: 0.01em; }
+article > header small { display: block; margin-top: 0.2rem; font-size: 0.78rem; }
+
+h2 { font-size: 1.25rem; }
+
+/* One question per field, with the note attached to it rather than floating
+   below an unrelated control. */
+.field { margin-bottom: 1rem; }
+.field > label { margin-bottom: 0.3rem; font-weight: 600; font-size: 0.9rem; }
+.field input { margin-bottom: 0; }
+.field-note {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--pico-muted-color);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+/* The example URL in the note is a single unbreakable token; without this it
+   sets the min-content width of the whole page and overflows a phone viewport. */
+.field-note code { overflow-wrap: anywhere; word-break: break-word; }
+
+/* Input + button on one line. The input keeps the remaining width; the button
+   never shrinks below its label. */
+.copy-row { display: flex; gap: 0.5rem; align-items: stretch; }
+.copy-row > input, .copy-row > code { flex: 1 1 auto; min-width: 0; margin-bottom: 0; }
+.copy-row > button {
+  flex: 0 0 auto;
+  margin-bottom: 0;
+  white-space: nowrap;
+}
+
+.hint {
+  min-height: 1.4rem;
+  margin: 0.25rem 0 0;
+  font-size: 0.82rem;
+  color: var(--dl-ok);
+}
+
+.stat .big { margin-top: 0.1rem; }
+.stat progress { margin-bottom: 0.35rem; }
+.stat > header { margin-bottom: 0.55rem; }
+
+.nowrap { white-space: nowrap; }
+
+form.inline { display: inline; margin: 0; }
+form.inline button { margin: 0; }
+
+button.xs, a.xs {
+  padding: 0.2rem 0.5rem;
+  font-size: 0.75rem;
+  margin: 0.1rem 0.15rem 0.1rem 0;
+}
+button.sm, a.sm { padding: 0.3rem 0.6rem; font-size: 0.82rem; }
+
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.15rem; }
+/* The buttons live in a div inside the cell, not on the cell itself. Putting
+   `display: flex` on the <td> takes it out of table layout, the layout engine
+   then gives that column whatever is left (~72 px), and six buttons overflow a
+   cell that no longer reserves room for them. */
+.table-wrap td.actions-cell { white-space: normal; }
+
+button.linklike {
+  background: none;
+  border: none;
+  color: var(--pico-primary);
+  padding: 0 0.25rem;
+  font-size: 0.72rem;
+  cursor: pointer;
+  text-decoration: underline;
+}
+button.danger { color: var(--dl-bad); border-color: var(--dl-bad); }
+
+.pager {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.75rem;
+}
+
+.row { display: flex; gap: 0.6rem; align-items: flex-end; flex-wrap: wrap; }
+.row button { margin-bottom: 0.35rem; }
+
+details > summary { cursor: pointer; font-weight: 600; margin-bottom: 0.6rem; }
+
+/* ------------------------------------------------------------------
+   Small screens — one block, so the rules that depend on each other cannot
+   end up split across two copies of the same media query.
+   ------------------------------------------------------------------ */
+
+@media (max-width: 640px) {
+  body { font-size: 15px; }
+  .big { font-size: 1.25rem; }
+
+  /* The header is the one row that cannot stack: brand, username and three
+     controls share 390 px. Tighten the gaps rather than shrinking the type
+     below 12.8 px, which is where the labels stop being comfortably legible. */
+  .site-header nav { padding-block: 0.3rem; }
+  .site-header nav ul:last-of-type { gap: 0.25rem; }
+  .site-header nav li { padding: 0; }
+  .site-header nav li > small { font-size: 0.78rem; }
+  .site-header nav li > a[role="button"],
+  .site-header nav li form.inline > button {
+    padding: 0 0.5rem;
+    font-size: 0.8rem;
+  }
+
+  /* Stack the button under its input: at 390 px a side-by-side button steals
+     so much room that only the scheme of a long URL stays visible. */
+  .copy-row { flex-wrap: wrap; }
+  .copy-row > button { width: 100%; padding: 0.55rem 1rem; }
+  /* A URL in a text input never wraps, it scrolls; a smaller face at least
+     lets the host and the token head show without dragging. */
+  .copy-row > input { font-size: 0.82rem; }
+
+  /* A URL wrapped into a 90 px column is unreadable; a horizontal scrollbar is
+     undiscoverable on a phone. Stack the history rows instead: the URL takes a
+     full line of its own and the remaining fields read as label/value pairs.
+     The labels come from data-label, which is why the templates carry it.
+     There is deliberately no `.col-secondary { display: none }` in here: the
+     rule that used to sit at this point never took effect, because the
+     `.stack-table td { display: flex }` below is specificity (0,1,1) against
+     its (0,1,0). The secondary cells have always been visible on a phone, and
+     that is the behaviour worth keeping — 连接 / 耗时 / Range are the fields a
+     stacked row reads best. */
+  td.url { max-width: none; min-width: 0; }
+  .stack-table thead { display: none; }
+  .stack-table, .stack-table tbody, .stack-table tr, .stack-table td {
+    display: block;
+    width: auto;
+  }
+  .stack-table tr {
+    border-bottom: 1px solid var(--pico-table-border-color, #dde1e6);
+    padding: 0.55rem 0;
+  }
+  .stack-table tr:last-child { border-bottom: none; }
+  .stack-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.75rem;
+    padding: 0.1rem 0;
+    text-align: right;
+  }
+  .stack-table td::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    font-size: 0.78rem;
+    color: var(--pico-muted-color);
+    text-align: left;
+  }
+  /* The URL needs the whole line, so it drops the label/value pairing. */
+  .stack-table td.url {
+    display: block;
+    text-align: left;
+    padding-bottom: 0.25rem;
+  }
+  .stack-table td.url::before { display: block; margin-bottom: 0.1rem; }
+}
+
+/* The users table turns into stacked cards below 900 px.
+   It cannot be read by scrolling: the token alone is 32 unbreakable characters
+   and the action column is six buttons wide, so at 390 px the buttons sat
+   479 px past the right edge — the only controls a phone user needs were the
+   ones they could not reach without discovering a horizontal scrollbar. At
+   700 px the table still overflowed its wrapper by 17 px. Stack each row
+   instead; the labels come from data-label so the header row can go. */
+@media (max-width: 900px) {
+  .users-table thead { display: none; }
+  .users-table, .users-table tbody, .users-table tr, .users-table td {
+    display: block;
+    width: auto;
+  }
+  .users-table tr {
+    border-bottom: 1px solid var(--pico-table-border-color, #dde1e6);
+    padding: 0.5rem 0;
+  }
+  .users-table tr:last-child { border-bottom: none; }
+  .users-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.75rem;
+    white-space: normal;
+    padding: 0.2rem 0;
+    text-align: right;
+  }
+  .users-table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    text-align: left;
+    flex: 0 0 auto;
+  }
+  /* The token cell holds a code block plus a copy button; the label on the
+     left and the pair on the right would squeeze the token to nothing. */
+  .users-table td.token-cell {
+    display: block;
+    max-width: none;
+    text-align: left;
+  }
+  .users-table td.token-cell::before { display: block; margin-bottom: 0.2rem; }
+  .users-table td.actions-cell { display: block; }
+
+  /* Six action buttons per row at 0.75rem is a lot of tapping. Full-width
+     stacking fixed the mis-taps but made every account card six lines of
+     buttons tall, which is what the phone screenshot showed. Two columns keep
+     the targets big (≈180 px at 390 px wide) and halve the height; a single
+     column would be safer still, but three rows already reads as a block.
+     The `margin: 0` is what keeps the .xs right margin from adding 2 px per
+     button and pushing the row past the cell edge. */
+  .actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 0.3rem;
+  }
+  /* `display: contents` is the point of this block. The <form> is not a layout
+     object — it only carries the POST — so dissolving its box lets its five
+     buttons join the grid as siblings of the 历史 link. Without it the grid
+     only ever sees two children (one link, one form) and every button inside
+     the form stays on its own line, which is exactly what six full-width
+     rows looked like on a phone. */
+  .actions > form { display: contents; }
+  .actions > a,
+  .actions button {
+    width: 100%;
+    margin: 0;
+    text-align: center;
+  }
+}

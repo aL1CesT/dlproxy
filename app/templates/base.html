@@ -1,0 +1,47 @@
+{# Base layout. Pico.css is vendored under /static so the login page does not
+   depend on a CDN — the service must be usable on a box whose only egress is
+   the links its own users paste into it. #}
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>{% block title %}dlproxy{% endblock %}</title>
+  <link rel="stylesheet" href="/static/pico.min.css">
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<main class="container">
+  <header class="site-header">
+    <nav>
+      <ul><li><strong>dlproxy</strong></li></ul>
+      <ul>
+        {% if user %}
+          <li><small>{{ user.username }}</small></li>
+          <li><a href="/password" role="button" class="outline sm">修改密码</a></li>
+          {% if user.is_admin %}
+            <li><a href="/{{ admin_path }}" role="button" class="outline sm">管理</a></li>
+          {% endif %}
+          <li>
+            <form method="post" action="/logout" class="inline">
+              <button type="submit" class="outline sm">退出</button>
+            </form>
+          </li>
+        {% endif %}
+      </ul>
+    </nav>
+  </header>
+
+  {% if msg %}<div class="banner ok" role="status">{{ msg }}</div>{% endif %}
+  {% if err %}<div class="banner bad" role="alert">{{ err }}</div>{% endif %}
+  {% block banners %}{% endblock %}
+
+  {% block content %}{% endblock %}
+
+  <footer class="site-footer">
+    <small>下载加速网关 · 支持 HTTP/HTTPS 的 GET 与 Range 请求</small>
+  </footer>
+</main>
+</body>
+</html>

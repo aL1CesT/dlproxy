@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}登录 · dlproxy{% endblock %}
+{% block content %}
+<article class="narrow">
+  <h2>登录</h2>
+  <form method="post" action="/login">
+    <label>用户名
+      <input name="username" autocomplete="username" required autofocus>
+    </label>
+    <label>密码
+      <input name="password" type="password" autocomplete="current-password" required>
+    </label>
+    <button type="submit">登录</button>
+  </form>
+  <small>连续 5 次失败将锁定该 IP 15 分钟。</small>
+</article>
+{% endblock %}

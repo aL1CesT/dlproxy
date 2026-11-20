@@ -1,0 +1,39 @@
+[Unit]
+Description=dlproxy — download accelerator gateway
+Documentation=file:///opt/dlproxy/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=dlproxy
+Group=dlproxy
+WorkingDirectory=/opt/dlproxy
+EnvironmentFile=/opt/dlproxy/.env
+ExecStart=/opt/dlproxy/venv/bin/python -m app
+Restart=always
+RestartSec=3
+
+# Each in-flight stream holds two file descriptors (client + upstream). The
+# default 1024 soft limit caps us at ~500 streams, below the 256 global cap plus
+# nginx's own connections, so raise it explicitly.
+LimitNOFILE=65535
+
+# Hardening. The service only needs to read its own tree and write to data/,
+# backup/ and /var/log/dlproxy — nothing else on the box.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+ReadWritePaths=/opt/dlproxy/data /opt/dlproxy/backup /var/log/dlproxy
+# No uploads, no local file serving: the only writable surface is SQLite.
+
+[Install]
+WantedBy=multi-user.target

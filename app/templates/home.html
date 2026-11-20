@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+{% block title %}dlproxy{% endblock %}
+
+{% block banners %}
+{% if init_file_present %}
+<div class="banner warn" role="alert">
+  <code>INITIAL_ADMIN.txt</code> 尚未删除。确认已记录密码后请删除该文件。
+</div>
+{% endif %}
+{% if not smtp_configured %}
+<div class="banner warn" role="status">
+  告警通道未配置，证书到期、流量熔断与登录锁定不会发出通知。
+  {% if user and user.is_admin %}<a href="/{{ admin_path }}#smtp">前往配置</a>{% endif %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+{% set used_pct = (state.day_bytes * 100 / state.daily_limit) if state.daily_limit else 0 %}
+
+<article>
+  <header><strong>加速链接</strong></header>
+
+  <div class="field">
+    <label for="src">原始链接</label>
+    <input id="src" type="url" autocomplete="off" spellcheck="false"
+           placeholder="https://github.com/owner/repo/releases/download/v1/file.tar.gz">
+    <small class="field-note">
+      填入目标文件的直链。路径部分原样转发，<code>//</code>、<code>%2F</code>、<code>?</code> 不会被改写。
+    </small>
+  </div>
+
+  <div class="field">
+    <label for="out">生成的加速链接</label>
+    <div class="copy-row">
+      <input id="out" type="text" readonly placeholder="填写原始链接后自动生成">
+      <button type="button" class="secondary" data-copy-target="out">复制</button>
+    </div>
+  </div>
+
+  <div class="field">
+    <label for="base">加速前缀（可用于自行拼接）</label>
+    <div class="copy-row">
+      <input id="base" type="text" readonly value="{{ public_base }}/u/{{ user.token }}/">
+      <button type="button" class="secondary" data-copy-target="base">复制</button>
+    </div>
+    <small class="field-note">
+      最终地址为「加速前缀 + 原始链接」，例如
+      <code>{{ public_base }}/u/{{ user.token }}/https://example.com/file.iso</code>
+    </small>
+  </div>
+
+  <p class="hint" id="hint" role="status" aria-live="polite"></p>
+</article>
+
+<div class="grid">
+  <article class="stat">
+    <header><strong>今日用量</strong></header>
+    <p class="big">{{ state.day_bytes | humanbytes }}</p>
+    <progress value="{{ state.day_bytes }}" max="{{ state.daily_limit }}"></progress>
+    <small>{{ "%.1f"|format(used_pct) }}% / 上限 {{ state.daily_limit | humanbytes }}
+      （{{ state.day }}，UTC+8）</small>
+  </article>
+  <article class="stat">
+    <header><strong>本月用量</strong></header>
+    <p class="big">{{ state.month_bytes | humanbytes }}</p>
+    <progress value="{{ state.month_bytes }}" max="{{ state.monthly_limit }}"></progress>
+    <small>上限 {{ state.monthly_limit | humanbytes }}（{{ state.month }}）</small>
+  </article>
+  <article class="stat">
+    <header><strong>我的活跃流</strong></header>
+    <p class="big">{{ my_streams }}</p>
+    <small>当前正在传输的连接数（上限 {{ snapshot.token_cap }}）</small>
+  </article>
+  <article class="stat">
+    <header><strong>访问 token</strong></header>
+    <div class="copy-row">
+      <code class="token" id="token">{{ user.token }}</code>
+      <button type="button" class="secondary sm" data-copy-target="token">复制</button>
+    </div>
+    <form method="post" action="/token/reset"
+          onsubmit="return confirm('重置后当前链接立即失效，确定继续？')">
+      <button type="submit" class="contrast outline sm">重置 token</button>
+    </form>
+  </article>
+</div>
+
+{% if state.bypassed %}
+<div class="banner warn">已临时解封至 {{ state.bypass_until.strftime('%Y-%m-%d %H:%M') }} UTC，期间不触发熔断。</div>
+{% endif %}
+
+<article>
+  <header>
+    <strong>下载历史</strong>
+    <small>共 {{ total }} 条，同一 URL 在 {{ aggregate_window_s }} 秒内的请求合并为一条（「连接」是该条合并了几个请求）</small>
+  </header>
+  {% if rows %}
+  <div class="table-wrap">
+    <table class="stack-table">
+      <thead>
+        <tr><th>时间</th><th class="url-col">URL</th><th>状态</th>
+            <th>已发送</th><th class="col-secondary">连接</th>
+            <th class="col-secondary">耗时</th>
+            <th class="col-secondary">Range</th></tr>
+      </thead>
+      <tbody>
+      {% for r in rows %}
+        <tr>
+          <td class="nowrap" data-label="时间"><small>{{ r.started_at[5:16].replace('T', ' ') }}</small></td>
+          <td class="url" data-label="URL" title="{{ r.url }}">{{ r.url }}</td>
+          <td data-label="状态">{{ r.status_code if r.status_code is not none else '—' }}</td>
+          <td data-label="已发送">{{ r.bytes_sent | humanbytes }}</td>
+          <td class="col-secondary" data-label="连接">{{ r.requests }}</td>
+          <td class="col-secondary" data-label="耗时">{{ (r.duration_ms / 1000) | round(1) if r.duration_ms else '—' }}s</td>
+          <td class="col-secondary" data-label="Range">{{ '是' if r.range_hit else '' }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if pages > 1 %}
+  <nav class="pager">
+    {% if page > 1 %}<a href="/?page={{ page - 1 }}">上一页</a>{% else %}<span></span>{% endif %}
+    <small>第 {{ page }} / {{ pages }} 页</small>
+    {% if page < pages %}<a href="/?page={{ page + 1 }}">下一页</a>{% else %}<span></span>{% endif %}
+  </nav>
+  {% endif %}
+  {% else %}
+  <p><small>暂无记录。</small></p>
+  {% endif %}
+</article>
+
+<script>
+(function () {
+  const BASE = {{ public_base | tojson }};
+  const TOKEN = {{ user.token | tojson }};
+  const src = document.getElementById('src');
+  const out = document.getElementById('out');
+  const hint = document.getElementById('hint');
+
+  function build() {
+    const value = src.value.trim();
+    out.value = value ? `${BASE}/u/${TOKEN}/${value}` : '';
+  }
+
+  function flash(text) {
+    hint.textContent = text;
+    window.clearTimeout(flash._t);
+    flash._t = window.setTimeout(function () { hint.textContent = ''; }, 2400);
+  }
+
+  function copyFrom(el) {
+    const text = (el.value !== undefined ? el.value : el.textContent).trim();
+    if (!text) return;
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(
+        function () { flash('已复制到剪贴板'); },
+        function () { legacyCopy(text); });
+      return;
+    }
+    legacyCopy(text);
+  }
+
+  function legacyCopy(text) {
+    const box = document.createElement('textarea');
+    box.value = text;
+    box.setAttribute('readonly', '');
+    box.style.position = 'fixed';
+    box.style.opacity = '0';
+    document.body.appendChild(box);
+    box.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    document.body.removeChild(box);
+    flash(ok ? '已复制到剪贴板' : '浏览器拒绝了复制，请手动选中');
+  }
+
+  document.querySelectorAll('[data-copy-target]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      if (btn.dataset.copyTarget === 'out' && !out.value) build();
+      copyFrom(document.getElementById(btn.dataset.copyTarget));
+    });
+  });
+
+  src.addEventListener('input', build);
+})();
+</script>
+{% endblock %}

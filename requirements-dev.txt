@@ -1,0 +1,15 @@
+# dlproxy — development-only dependencies (not installed on the server)
+#
+# The server needs requirements.txt only. These are for running the test suite
+# and the UI checker on a development machine.
+#
+#   pip install -r requirements.txt -r requirements-dev.txt
+#   python -m playwright install chromium      # ui_check.py needs this browser
+#
+# Versions are the ones the suite was last run against. They are pinned for the
+# same reason requirements.txt is: an unpinned pytest can silently change what
+# `asyncio_mode = auto` means, and every async test in tests/ relies on it.
+
+pytest==9.1.1
+pytest-asyncio==1.5.0
+playwright==1.65.2

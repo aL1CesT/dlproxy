@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}流量已达上限{% endblock %}
+{% block content %}
+<article>
+  <header><strong>今日/本月流量已达上限</strong></header>
+  <p>新的下载请求已被拒绝，正在进行的下载不受影响。</p>
+  <table>
+    <tbody>
+      <tr><th>今日已用</th><td>{{ state.day_bytes | humanbytes }} / {{ state.daily_limit | humanbytes }}</td></tr>
+      <tr><th>本月已用</th><td>{{ state.month_bytes | humanbytes }} / {{ state.monthly_limit | humanbytes }}</td></tr>
+      <tr><th>触发原因</th><td>{{ state.reason() }}</td></tr>
+    </tbody>
+  </table>
+  <p><small>请联系管理员，或在管理页临时解封。解封只跳过上限判定，已记录的用量不受影响。</small></p>
+</article>
+{% endblock %}

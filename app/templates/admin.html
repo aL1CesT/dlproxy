@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+{% block title %}管理 · dlproxy{% endblock %}
+
+{% block banners %}
+{% if init_file_present %}
+<div class="banner warn" role="alert">
+  <code>INITIAL_ADMIN.txt</code> 仍在服务器上。确认密码已转存后删除它：
+  <code>rm /opt/dlproxy/INITIAL_ADMIN.txt</code>
+</div>
+{% endif %}
+{% if not smtp_configured %}
+<div class="banner warn" role="status" id="smtp-warn">
+  告警通道未配置：证书到期、流量熔断与登录锁定不会发出通知。
+</div>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+
+<article>
+  <header>
+    <strong>运行状态</strong>
+    <a href="/" role="button" class="outline sm">返回首页</a>
+  </header>
+  <div class="grid">
+    <div>
+      <p class="big">{{ snapshot.global }} <small>/ {{ snapshot.global_cap }}</small></p>
+      <small>活跃流（全局上限可在下方修改）</small>
+      <small>
+        {% if active_rows %}
+          {% for a in active_rows %}{{ a.username }} {{ a.streams }}{% if not loop.last %} · {% endif %}{% endfor %}
+        {% else %}
+          当前没有正在传输的连接
+        {% endif %}
+        {% if orphan_tokens %}· 另有 {{ orphan_streams }} 条连接来自 {{ orphan_tokens }} 个已重置的 token{% endif %}
+      </small>
+    </div>
+    <div>
+      <p class="big">{{ snapshot.token_cap }}</p>
+      <small>单 token 活跃流上限</small>
+    </div>
+    <div>
+      <p class="big">{{ state.day_bytes | humanbytes }}</p>
+      <small>今日全站（{{ state.day }}，UTC+8）</small>
+    </div>
+    <div>
+      <p class="big">{{ state.month_bytes | humanbytes }}</p>
+      <small>本月全站</small>
+    </div>
+  </div>
+  {% if state.blocked %}
+  <div class="banner bad">熔断中：{{ state.reason() }}。新请求返回 429。</div>
+  {% elif state.bypassed %}
+  <div class="banner warn">临时解封中，至 {{ state.bypass_until.strftime('%Y-%m-%d %H:%M') }} UTC。</div>
+  {% endif %}
+  <form method="post" action="/{{ admin_path }}/unblock" class="row">
+    <label>临时解封时长（小时）
+      <input name="hours" type="number" min="0" step="1" value="24">
+    </label>
+    <button type="submit">解封</button>
+  </form>
+  <small>填 0 表示取消解封。解封只跳过日/月上限判定，<strong>不改动</strong>已记录的用量，月度统计始终真实。</small>
+</article>
+
+<article>
+  <header><strong>用户</strong></header>
+  <div class="table-wrap">
+  <table class="users-table">
+    <thead>
+      <tr><th class="col-secondary">ID</th><th>用户名</th><th>访问 token</th>
+          <th class="col-secondary">今日</th><th class="col-secondary">本月</th>
+          <th>状态</th><th>操作</th></tr>
+    </thead>
+    <tbody>
+    {% for item in usage_rows %}
+      {% set u = item.user %}
+      <tr>
+        <td class="col-secondary" data-label="ID">{{ u.id }}</td>
+        <td data-label="用户名">{{ u.username }}{% if u.is_admin %} <small>(管理员)</small>{% endif %}</td>
+        <td class="token-cell" data-label="访问 token">
+          <code class="token">{{ u.token }}</code>
+          <button type="button" class="linklike" onclick="copyText('{{ u.token }}')">复制</button>
+        </td>
+        <td class="col-secondary" data-label="今日">{{ item.today | humanbytes }}</td>
+        <td class="col-secondary" data-label="本月">{{ item.month | humanbytes }}</td>
+        <td data-label="状态">
+          {% if u.disabled %}<span class="tag bad">已禁用</span>{% endif %}
+          {% if not u.token_active %}<span class="tag bad">token 失效</span>{% endif %}
+          {% if not u.disabled and u.token_active %}<span class="tag ok">正常</span>{% endif %}
+        </td>
+        <td class="actions-cell">
+          <div class="actions">
+          <a href="/{{ admin_path }}/history/{{ u.id }}" role="button" class="outline xs">历史</a>
+          <form method="post" action="/{{ admin_path }}/users/{{ u.id }}/action" class="inline">
+            {% if u.disabled %}
+              <button name="action" value="enable" class="outline xs">启用</button>
+            {% else %}
+              <button name="action" value="disable" class="outline xs">禁用</button>
+            {% endif %}
+            <button name="action" value="reset_token" class="outline xs"
+              onclick="return confirm('重置后该用户旧链接立即失效，继续？')">重置 token</button>
+            <button name="action" value="toggle_token" class="outline xs">启用/停用 token</button>
+            <button name="action" value="reset_password" class="outline xs"
+              onclick="return confirm('将生成新密码并显示一次，继续？')">重置密码</button>
+            <button name="action" value="delete" class="outline xs danger"
+              onclick="return confirm('删除用户会同时删除其历史记录，继续？')">删除</button>
+          </form>
+          </div>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+
+  <details>
+    <summary>新建用户</summary>
+    <form method="post" action="/{{ admin_path }}/users">
+      <div class="grid">
+        <label>用户名<input name="username" required></label>
+        <label>初始密码（至少 8 位）<input name="password" type="password" required minlength="8" autocomplete="new-password"></label>
+      </div>
+      <label><input type="checkbox" name="is_admin" value="1"> 设为管理员</label>
+      <button type="submit">创建</button>
+    </form>
+  </details>
+</article>
+
+<article>
+  <header><strong>限额与并发</strong></header>
+  <form method="post" action="/{{ admin_path }}/settings">
+    <div class="grid">
+      <label>日上限（GB）
+        <input name="daily_limit_gb" type="number" step="0.1" min="0"
+               value="{{ '%.2f'|format(settings.daily_limit_bytes|int / 1073741824) }}">
+      </label>
+      <label>月上限（GB）
+        <input name="monthly_limit_gb" type="number" step="0.1" min="0"
+               value="{{ '%.2f'|format(settings.monthly_limit_bytes|int / 1073741824) }}">
+      </label>
+    </div>
+    <div class="grid">
+      <label>全局活跃流上限
+        <input name="max_active_streams_global" type="number" min="1"
+               value="{{ settings.max_active_streams_global }}">
+      </label>
+      <label>单 token 活跃流上限
+        <input name="max_active_streams_per_token" type="number" min="1"
+               value="{{ settings.max_active_streams_per_token }}">
+      </label>
+    </div>
+    <div class="grid">
+      <label>流空闲超时（秒）
+        <input name="stream_idle_timeout_s" type="number" min="10"
+               value="{{ settings.stream_idle_timeout_s }}">
+      </label>
+      <label>每用户历史条数
+        <input name="history_per_user" type="number" min="50"
+               value="{{ settings.history_per_user }}">
+      </label>
+      <label>历史每页条数
+        <input name="history_per_page" type="number" min="5" max="200"
+               value="{{ settings.history_per_page }}">
+      </label>
+      <label>证书剩余告警阈值（天）
+        <input name="cert_warn_days" type="number" min="1"
+               value="{{ settings.cert_warn_days }}">
+      </label>
+    </div>
+    <small>上限填 0 表示不限制。并发按"活跃流"计数，达到上限后新请求返回 503 并带 Retry-After；被熔断时返回 429，两者含义不同。</small>
+    <button type="submit">保存限额</button>
+  </form>
+</article>
+
+<article id="smtp">
+  <header><strong>告警通道（SMTP）</strong></header>
+  <form method="post" action="/{{ admin_path }}/settings">
+    <div class="grid">
+      <label>SMTP 主机<input name="smtp_host" value="{{ settings.smtp_host }}" placeholder="smtp.example.com"></label>
+      <label>端口<input name="smtp_port" type="number" value="{{ settings.smtp_port or 587 }}"></label>
+    </div>
+    <div class="grid">
+      <label>用户名<input name="smtp_user" value="{{ settings.smtp_user }}" autocomplete="off"></label>
+      <label>密码<input name="smtp_pass" type="password" autocomplete="new-password"
+                        placeholder="{{ '已设置，留空则不改' if settings.smtp_pass else '未设置' }}"></label>
+    </div>
+    <div class="grid">
+      <label>发件人<input name="smtp_from" value="{{ settings.smtp_from }}" placeholder="dlproxy@example.com"></label>
+      <label>收件人<input name="smtp_to" value="{{ settings.smtp_to }}" placeholder="you@example.com"></label>
+    </div>
+    <label><input type="checkbox" name="smtp_tls" value="1"
+                  {{ 'checked' if settings.smtp_tls == '1' }}> 使用 STARTTLS（端口 465 时自动改用 SSL）</label>
+    <button type="submit">保存 SMTP</button>
+  </form>
+  <form method="post" action="/{{ admin_path }}/smtp-test" class="inline">
+    <button type="submit" class="outline">发送测试邮件</button>
+  </form>
+</article>
+
+<article>
+  <header><strong>安全</strong></header>
+  <p>管理入口：<code>/{{ admin_path }}</code></p>
+  <form method="post" action="/{{ admin_path }}/regenerate-path"
+        onsubmit="return confirm('旧管理路径将立即返回 404，请确保你能记住新路径，继续？')">
+    <button type="submit" class="contrast outline">重新生成管理路径</button>
+  </form>
+  <small>管理路径本身即为访问凭据：路径不匹配时统一返回 404，不泄露其是否存在。</small>
+</article>
+
+<script>
+function copyText(t) {
+  navigator.clipboard?.writeText(t).catch(() => {});
+}
+</script>
+{% endblock %}

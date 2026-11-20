@@ -1,0 +1,17 @@
+# dlproxy — pinned direct dependencies (Ubuntu 24.04 arm64 / CPython 3.12)
+#
+# All of these are pure-python (py3-none-any) wheels. Their compiled transitive
+# dependencies (pydantic-core, cffi, argon2-cffi-bindings, markupsafe) all publish
+# manylinux2014/2_17/2_26/2_28 aarch64 wheels, so `pip install` needs no compiler
+# and no build-essential on the target box.
+#
+# Transitive dependencies are deliberately NOT frozen: freezing them pins
+# platform-specific build tags that break on arm64. See README "Dependency policy".
+
+fastapi==0.163.2
+uvicorn==0.54.0
+httpx==0.28.1
+jinja2==3.1.6
+argon2-cffi==25.1.0
+itsdangerous==2.2.0
+python-multipart==0.0.34

@@ -1,0 +1,28 @@
+# /etc/cron.d/dlproxy
+#
+# Note the trailing newline and the explicit user column — cron.d files need both.
+#
+# NO `certbot renew` job here, deliberately. snap ships
+# snap.certbot.renew.timer (roughly twice a day, randomised seconds), and
+# certbot >= 4.0 renews a short-lived certificate at half its lifetime — 80
+# hours for a 160-hour IP certificate. A hand-written 2-3 day cron would either
+# duplicate that timer or race it.
+#
+# Never add --force-renewal to a timed job: the "5 certificates per 7 days per
+# exact set of identifiers" limit has no override, so a stuck loop locks the IP
+# out for a week.
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# Daily SQLite backup at 03:00. The script uses the sqlite3 backup API, never
+# `cp`: copying a WAL-mode database while it is being written yields a file that
+# may not open at all.
+0 3 * * * root /usr/local/bin/dlproxy-backup >> /var/log/dlproxy/backup.log 2>&1
+
+# Certificate health, every 6 hours.
+#
+# Two independent signals, because "is the cert close to expiry" and "is renewal
+# automation broken" fail at different times. A short-lived certificate renews
+# around the 80-hour mark, so if it is still the same certificate at 96 hours,
+# renewal is broken — that fires long before the expiry warning would.
+15 */6 * * * root /usr/local/bin/dlproxy-cert-check >> /var/log/dlproxy/cert.log 2>&1

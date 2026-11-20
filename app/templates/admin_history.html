@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}下载历史 · {{ target.username }}{% endblock %}
+{% block content %}
+<article>
+  <header>
+    <strong>{{ target.username }} 的下载历史</strong>
+    <small>只读视图，共 {{ total }} 条，第 {{ page }} / {{ pages }} 页</small>
+  </header>
+  <p><a href="/{{ admin_path }}">返回管理页</a></p>
+  {% if rows %}
+  <div class="table-wrap">
+    <table class="stack-table">
+      <thead>
+        <tr><th>时间</th><th class="url-col">URL</th><th>状态</th><th>已发送</th>
+            <th class="col-secondary">连接</th>
+            <th class="col-secondary">总长</th>
+            <th class="col-secondary">耗时</th>
+            <th class="col-secondary">Range</th>
+            <th class="col-secondary">客户端 IP</th></tr>
+      </thead>
+      <tbody>
+      {% for r in rows %}
+        <tr>
+          <td class="nowrap" data-label="时间"><small>{{ r.started_at[5:16].replace('T', ' ') }}</small></td>
+          <td class="url" data-label="URL" title="{{ r.url }}">{{ r.url }}</td>
+          <td data-label="状态">{{ r.status_code if r.status_code is not none else '—' }}</td>
+          <td data-label="已发送">{{ r.bytes_sent | humanbytes }}</td>
+          <td class="col-secondary" data-label="连接">{{ r.requests }}</td>
+          <td class="col-secondary" data-label="总长">{{ r.size_total | humanbytes if r.size_total else '—' }}</td>
+          <td class="col-secondary" data-label="耗时">{{ (r.duration_ms / 1000) | round(1) if r.duration_ms else '—' }}s</td>
+          <td class="col-secondary" data-label="Range">{{ '是' if r.range_hit else '' }}</td>
+          <td class="col-secondary" data-label="客户端 IP"><small>{{ r.client_ip }}</small></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p><small>暂无记录。</small></p>
+  {% endif %}
+  {% if pages > 1 %}
+  <nav class="pager">
+    {% if page > 1 %}<a href="/{{ admin_path }}/history/{{ target.id }}?page={{ page - 1 }}">上一页</a>{% else %}<span></span>{% endif %}
+    <small>第 {{ page }} / {{ pages }} 页</small>
+    {% if page < pages %}<a href="/{{ admin_path }}/history/{{ target.id }}?page={{ page + 1 }}">下一页</a>{% else %}<span></span>{% endif %}
+  </nav>
+  {% endif %}
+</article>
+{% endblock %}
