@@ -73,18 +73,18 @@ ssh user@<IP> 'cd /tmp/dlproxy-upload/dlproxy && sudo ./install.sh'
 
 | 路径 | 必需 | 说明 |
 | --- | --- | --- |
-| `install.sh` / `deploy.sh` | ✅ | 根目录的转发入口，参数原样交给 `deploy/` 里的同名脚本 |
-| `app/*.py`（15 个） | ✅ | 服务本体。`menu.py` 是交互菜单，`cli.py` 是逐条命令 |
-| `app/templates/*.html`（7 个） | ✅ | 缺失时页面 500，服务仍能起 |
-| `app/static/*`（2 个） | ✅ | `pico.min.css` 是 vendored 的，不联网取 |
-| `requirements.txt` | ✅ | 7 个直接依赖 |
-| `deploy/deploy.sh` | ✅ | 安装器本体 |
-| `deploy/env.example` | ✅ | 首次部署用它生成 `.env` 并填入随机密钥 |
-| `deploy/dlproxy.service` | ✅ | systemd unit |
-| `deploy/nginx.conf` | ✅ | 站点模板。share-443 模式改用下面两个 |
+| `install.sh` / `deploy.sh` | 必需 | 根目录的转发入口，参数原样交给 `deploy/` 里的同名脚本 |
+| `app/*.py`（15 个） | 必需 | 服务本体。`menu.py` 是交互菜单，`cli.py` 是逐条命令 |
+| `app/templates/*.html`（7 个） | 必需 | 缺失时页面 500，服务仍能起 |
+| `app/static/*`（2 个） | 必需 | `pico.min.css` 是 vendored 的，不联网取 |
+| `requirements.txt` | 必需 | 7 个直接依赖 |
+| `deploy/deploy.sh` | 必需 | 安装器本体 |
+| `deploy/env.example` | 必需 | 首次部署用它生成 `.env` 并填入随机密钥 |
+| `deploy/dlproxy.service` | 必需 | systemd unit |
+| `deploy/nginx.conf` | 必需 | 站点模板。share-443 模式改用下面两个 |
 | `deploy/nginx-share443.conf` + `nginx-share443-stream.conf` | 可选 | 443 被其他服务占用时需要 |
-| `deploy/logrotate.conf` / `cron` / `backup.sh` / `cert-check.sh` / `renewal-hook.sh` | ✅ | 日志轮转、每日备份、证书自检与续期钩子 |
-| `deploy/dlproxy-cli.sh` | ✅ | 安装成 `/usr/local/bin/dlproxy` |
+| `deploy/logrotate.conf` / `cron` / `backup.sh` / `cert-check.sh` / `renewal-hook.sh` | 必需 | 日志轮转、每日备份、证书自检与续期钩子 |
+| `deploy/dlproxy-cli.sh` | 必需 | 安装成 `/usr/local/bin/dlproxy` |
 | `deploy/uninstall.sh` | 可选 | 卸载时才用 |
 | `deploy/install.sh` | 可选 | 交互式向导（根 `install.sh` 转发到它） |
 | `tools/`（13 个） | 可选 | 验证工具，`verify_acceptance.py` 要在服务器上跑 |
